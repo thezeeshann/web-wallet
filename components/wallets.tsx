@@ -21,7 +21,8 @@ import { useState } from "react";
 import { Mode } from "@/lib/types";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { GetItems, RemoveItems } from "@/lib/utils";
+import { GetItems, RemoveItems, SetItems, generateKeyFromDrivePath } from "@/lib/utils";
+import bs58 from "bs58";
 import { Wallet } from "@/lib/types";
 
 type WalletsProps = {
@@ -30,14 +31,52 @@ type WalletsProps = {
 
 export default function Wallets({ setSelectMode }: WalletsProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [targetDeleteIndex, setTargetDeleteIndex] = useState<number | null>(null);
   const [showSecretKey, setShowSecretKey] = useState<Record<number, boolean>>(
     {},
   );
-  const wallets = GetItems("wallet");
+  const [wallets, setWallets] = useState<Wallet[]>(GetItems("wallet"));
+
   function handleDelete() {
-    RemoveItems("wallet");
-    setSelectMode(null);
-    toast.success("All wallets cleared.");
+    if (targetDeleteIndex === null) {
+      RemoveItems("wallet");
+      setSelectMode(null);
+      toast.success("All wallets cleared.");
+    } else {
+      const updatedWallets = wallets.filter((_, i) => i !== targetDeleteIndex);
+      if (updatedWallets.length === 0) {
+        RemoveItems("wallet");
+        setSelectMode(null);
+        toast.success("All wallets cleared.");
+      } else {
+        setWallets(updatedWallets);
+        SetItems("wallet", JSON.stringify(updatedWallets));
+        toast.success(`Wallet ${targetDeleteIndex + 1} removed.`);
+      }
+    }
+    setIsDeleteOpen(false);
+    setTargetDeleteIndex(null);
+  }
+
+  function handleAddWallet() {
+    if (wallets.length === 0) return;
+    try {
+      const seed = wallets[0].seed;
+      if (!seed) throw new Error("No seed found in the root wallet");
+      const newWallet = generateKeyFromDrivePath(seed, wallets.length);
+      const secretKeyString = bs58.encode(newWallet.secretKey);
+      const newWalletData = { 
+        publicKey: newWallet.publicKey, 
+        secretKey: secretKeyString, 
+        seed: seed 
+      };
+      const updatedWallets = [...wallets, newWalletData];
+      setWallets(updatedWallets);
+      SetItems("wallet", JSON.stringify(updatedWallets));
+      toast.success("New wallet added!");
+    } catch (error) {
+      toast.error("Failed to add wallet");
+    }
   }
 
   return (
@@ -62,6 +101,7 @@ export default function Wallets({ setSelectMode }: WalletsProps) {
                     {word}
                   </Badge>
                 ))}
+                <p className="mt-3 font-semibold ">Copy</p>
               </div>
             ))}
           </AccordionContent>
@@ -71,11 +111,14 @@ export default function Wallets({ setSelectMode }: WalletsProps) {
       <div className="flex flex-row justify-between mt-5">
         <p className="font-semibold text-lg">Solana Wallet</p>
         <div className="flex flex-row gap-3">
-          <Button className="cursor-pointer p-5" variant={"default"}>
+          <Button onClick={handleAddWallet} className="cursor-pointer p-5" variant={"default"}>
             Add Wallet
           </Button>
           <Button
-            onClick={() => setIsDeleteOpen(true)}
+            onClick={() => {
+              setTargetDeleteIndex(null);
+              setIsDeleteOpen(true);
+            }}
             className="cursor-pointer p-5"
             variant={"destructive"}
           >
@@ -93,7 +136,10 @@ export default function Wallets({ setSelectMode }: WalletsProps) {
               </CardTitle>
               <CardDescription>
                 <Trash
-                  onClick={() => setIsDeleteOpen(true)}
+                  onClick={() => {
+                    setTargetDeleteIndex(index);
+                    setIsDeleteOpen(true);
+                  }}
                   className="cursor-pointer opacity-70 text-red-500"
                 />
               </CardDescription>
@@ -130,8 +176,13 @@ export default function Wallets({ setSelectMode }: WalletsProps) {
       ))}
       <DeleteWallets
         open={isDeleteOpen}
-        setIsDeleteOpen={setIsDeleteOpen}
+        setIsDeleteOpen={(open) => {
+          setIsDeleteOpen(open);
+          if (!open) setTargetDeleteIndex(null);
+        }}
         handleDelete={handleDelete}
+        title={targetDeleteIndex !== null ? `Are you sure you want to delete Wallet ${targetDeleteIndex + 1}?` : undefined}
+        description={targetDeleteIndex !== null ? "This will remove the wallet from this device." : undefined}
       />
     </div>
   );

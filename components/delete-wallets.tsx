@@ -13,23 +13,26 @@ type DeleteWalletsPros = {
   open: boolean;
   setIsDeleteOpen: (open: boolean) => void;
   handleDelete: () => void;
+  title?: string;
+  description?: string;
 };
 
 export default function DeleteWallets({
   open,
   setIsDeleteOpen,
   handleDelete,
+  title = "Are you sure you want to delete all wallets?",
+  description = "This action cannot be undone. This will permanently delete your wallets and keys from local storage."
 }: DeleteWalletsPros) {
   return (
     <AlertDialog open={open} onOpenChange={setIsDeleteOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Are you sure you want to delete all wallets?
+            {title}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete your
-            wallets and keys from local storage.
+            {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
