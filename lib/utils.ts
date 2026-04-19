@@ -21,7 +21,6 @@ export function RemoveItems(key:string){
 
 export function generateSeed() {
   const mnemonic = generateMnemonic();
-  console.log("Generated Mnemonic:", mnemonic);
   return mnemonic;
 }
 
